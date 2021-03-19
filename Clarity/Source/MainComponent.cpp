@@ -1,75 +1,122 @@
+
+#include <JuceHeader.h>
+#include <string>
 #include "MainComponent.h"
 
 //==============================================================================
 MainComponent::MainComponent()
 {
-    // Make sure you set the size of the component after
-    // you add any child components.
-    setSize (800, 600);
+    //Set size of window: setSize(int newWidth, int newHeight)
+    setSize(600, 500);
+ 
+    //displaying project name
+    addAndMakeVisible(projectName);
+    projectName.setFont(juce::Font(30.0f, juce::Font::bold));
+    projectName.setText("CLARITY", juce::dontSendNotification);
+    projectName.setColour(juce::Label::textColourId, juce::Colours::black);
+    projectName.setJustificationType(juce::Justification::left);
 
-    // Some platforms require permissions to open input channels so request that here
-    if (juce::RuntimePermissions::isRequired (juce::RuntimePermissions::recordAudio)
-        && ! juce::RuntimePermissions::isGranted (juce::RuntimePermissions::recordAudio))
-    {
-        juce::RuntimePermissions::request (juce::RuntimePermissions::recordAudio,
-                                           [&] (bool granted) { setAudioChannels (granted ? 2 : 0, 2); });
-    }
-    else
-    {
-        // Specify the number of input and output channels that we want to open
-        setAudioChannels (2, 2);
-    }
+    //displaying FFT
+    addAndMakeVisible(FFT);
+
+    //displaying Spectrum Analyzer
+    addAndMakeVisible(SA);
+
+    //displaying GainSlider
+    addAndMakeVisible(mGainControlSlider);
+    mGainControlSlider.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+    mGainControlSlider.setColour(juce::Slider::thumbColourId, juce::Colour::fromRGB(96, 45, 50));
+    mGainControlSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 50);
+    mGainControlSlider.addListener(this);
+ 
+
+    //gainLabel window
+    addAndMakeVisible(gainLabel);
+    gainLabel.setFont(juce::Font(16.0f, juce::Font::bold));
+    gainLabel.attachToComponent(&mGainControlSlider, false);
+    gainLabel.setJustificationType(juce::Justification::centred);
+    gainLabel.setText("Gain", juce::dontSendNotification);
+    
+    //creating mute button
+    addAndMakeVisible(muteButton);
+    muteButton.setButtonText("Mute");
+    muteButton.addListener(this);
+ 
 }
 
 MainComponent::~MainComponent()
 {
-    // This shuts down the audio device and clears the audio source.
-    shutdownAudio();
+   muteButton.removeListener(this);
+   mGainControlSlider.removeListener(this);
 }
 
-//==============================================================================
-void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRate)
-{
-    // This function will be called when the audio device is started, or when
-    // its settings (i.e. sample rate, block size, etc) are changed.
-
-    // You can use this function to initialise any resources you might need,
-    // but be careful - it will be called on the audio thread, not the GUI thread.
-
-    // For more details, see the help for AudioProcessor::prepareToPlay()
-}
-
-void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
-{
-    // Your audio-processing code goes here!
-
-    // For more details, see the help for AudioProcessor::getNextAudioBlock()
-
-    // Right now we are not producing any data, in which case we need to clear the buffer
-    // (to prevent the output of random noise)
-    bufferToFill.clearActiveBufferRegion();
-}
-
-void MainComponent::releaseResources()
-{
-    // This will be called when the audio device stops, or when it is being
-    // restarted due to a setting change.
-
-    // For more details, see the help for AudioProcessor::releaseResources()
-}
-
-//==============================================================================
 void MainComponent::paint (juce::Graphics& g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-
-    // You can add your drawing code here!
+    //fills with nice navy blue
+    //g.fillAll(juce::Colour(21, 36, 49));
+    
+    //coral gradient fill
+    g.setGradientFill(juce::ColourGradient(juce::Colours::coral, 300, 300, juce::Colours::lightcoral, 300, 300, true));
+    g.fillAll();
 }
 
+//on window resize:
 void MainComponent::resized()
 {
-    // This is called when the MainContentComponent is resized.
-    // If you add any child components, this is where you should
-    // update their positions.
+    //sets border to 20px
+    const int border = 20;
+
+    juce::Rectangle<int> area = getLocalBounds();
+    
+    //Positioning projectName
+    projectName.setBounds(area.removeFromTop(area.getHeight() / 20));
+
+    //Positioning mGainControlSlider
+    juce::Rectangle<int> mGainControlSliderArea = area.removeFromBottom(area.getHeight() / 5);
+    mGainControlSlider.setBounds(mGainControlSliderArea.removeFromLeft(area.getWidth() / 5).reduced(border));
+
+    //Positioning muteButton
+    juce::Rectangle<int> muteButtonArea = area.removeFromBottom(area.getHeight() / 5);
+    muteButton.setBounds(muteButtonArea.removeFromRight(area.getWidth() / 5).reduced(border));
+
+    //Positioning FFT Spectrogram
+    juce::Rectangle<int> FFTArea = area.removeFromBottom(area.getHeight() / 4);
+    FFT.setBounds(FFTArea.removeFromLeft(area.getWidth() / 3).reduced(border));
+    FFT.setBounds(FFTArea.removeFromRight(area.getWidth() / 3).reduced(border));
+
+    //Positioning Analyser
+    juce::Rectangle<int> AnalyserArea = area.removeFromBottom(area.getHeight() / 3);
+    SA.setBounds(AnalyserArea.removeFromLeft(area.getWidth() / 3).reduced(border));
+    SA.setBounds(AnalyserArea.removeFromRight(area.getWidth() / 3).reduced(border));
+   
+    
+    //testing flexbox object on fft spectrogram
+    /*juce::FlexBox FFTFlexBox;
+    FFTFlexBox.flexWrap = juce::FlexBox::Wrap::wrap;
+    FFTFlexBox.justifyContent = juce::FlexBox::JustifyContent::center;
+    FFTFlexBox.alignContent = juce::FlexBox::AlignContent::center;
+    FFTFlexBox.items.add(juce::FlexItem(FFT));  //adding spectrogram to flexbox
+    FFTFlexBox.performLayout(getLocalBounds().toFloat());
+    
+    //this is probably unecessary, idk what it does
+    juce::FlexItem main((float)getWidth() / 2.0f, (float)getHeight(), FFT);
+    */
+}
+
+void MainComponent::buttonClicked(juce::Button* button)
+{
+    if (button == &muteButton)
+    {
+        
+        //juce::AudioChannelSet::mono();
+    }
+
+}
+
+void MainComponent::sliderValueChanged(juce::Slider* slider)
+{
+    if (slider == &mGainControlSlider)
+    {
+        //mGainControlSlider.setValue(1.0 / mGainControlSlider.getValue(), juce::dontSendNotification);
+    }
 }
